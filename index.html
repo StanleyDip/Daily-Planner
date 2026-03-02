@@ -7,110 +7,94 @@
 
 <style>
 :root{
-  --bg:#0f1115;
-  --card:#171a21;
-  --card-light:#1e222b;
-  --border:#2a2f3a;
-  --text:#f1f5f9;
-  --muted:#9ca3af;
-  --primary:#3b82f6;
-  --danger:#ef4444;
+--bg:#0f1115;
+--card:#171a21;
+--card-light:#1e222b;
+--text:#f1f5f9;
+--muted:#9ca3af;
+--primary:#3b82f6;
+--danger:#ef4444;
 }
 
-*{box-sizing:border-box}
+body.light{
+--bg:#f3f4f6;
+--card:#ffffff;
+--card-light:#f9fafb;
+--text:#111827;
+--muted:#6b7280;
+}
 
 body{
-  margin:0;
-  font-family:Inter,system-ui,sans-serif;
-  background:radial-gradient(circle at top,#151922,#0f1115);
-  color:var(--text);
-  display:flex;
-  justify-content:center;
-  padding:60px 20px;
+margin:0;
+font-family:system-ui;
+background:var(--bg);
+color:var(--text);
+display:flex;
+justify-content:center;
+padding:40px;
 }
 
 .container{max-width:1000px;width:100%}
 
 .card{
-  background:var(--card);
-  border-radius:16px;
-  padding:40px;
-  border:1px solid var(--border);
-  box-shadow:0 20px 40px rgba(0,0,0,.6);
+background:var(--card);
+padding:30px;
+border-radius:12px;
 }
-
-h1{text-align:center;margin:0}
-.subtitle{text-align:center;color:var(--muted);margin:10px 0 40px}
 
 form{
-  display:grid;
-  grid-template-columns:repeat(5,1fr);
-  gap:12px;
-  margin-bottom:20px;
+display:grid;
+grid-template-columns:repeat(5,1fr);
+gap:10px;
+margin-bottom:20px;
 }
 
-select,input{
-  padding:12px;
-  background:var(--card-light);
-  border:1px solid var(--border);
-  border-radius:10px;
-  color:var(--text);
+input,select,button{
+padding:10px;
+border-radius:8px;
+border:none;
 }
 
 button{
-  border:none;
-  border-radius:10px;
-  padding:12px;
-  cursor:pointer;
-  font-weight:600;
-  background:var(--primary);
-  color:white;
+background:var(--primary);
+color:white;
+cursor:pointer;
 }
 
-#exportBtn{
-  margin-bottom:25px;
-  background:#10b981;
+.summary{
+display:flex;
+gap:20px;
+margin-top:15px;
+flex-wrap:wrap;
+}
+
+.badge{
+background:var(--card-light);
+padding:10px;
+border-radius:8px;
 }
 
 table{
-  width:100%;
-  border-collapse:collapse;
-  background:var(--card-light);
+width:100%;
+border-collapse:collapse;
+margin-top:20px;
 }
 
 th,td{
-  padding:14px;
-  text-align:center;
+padding:10px;
+text-align:center;
 }
 
-th{color:var(--muted)}
-
-tbody tr{border-top:1px solid var(--border)}
-
-tbody tr:hover{background:#222733}
-
-.hours-badge{
-  background:rgba(59,130,246,.15);
-  color:var(--primary);
-  padding:6px 10px;
-  border-radius:8px;
-  font-weight:600;
+canvas{
+margin-top:25px;
+background:var(--card-light);
+border-radius:10px;
+display:none;
 }
 
-.delete-btn{
-  background:var(--danger);
-  color:white;
-  padding:8px 14px;
-}
-
-.error{
-  color:#f87171;
-  text-align:center;
-  margin-bottom:15px;
-}
-
-@media(max-width:900px){
-  form{grid-template-columns:1fr}
+.toggle{
+float:right;
+margin-bottom:10px;
 }
 </style>
 </head>
@@ -120,13 +104,13 @@ tbody tr:hover{background:#222733}
 <div class="container">
 <div class="card">
 
-<h1>One For All Daily Planner</h1>
-<div class="subtitle">Track your daily learning and productivity</div>
+<button id="themeToggle" class="toggle">Toggle Theme</button>
+
+<h2>One For All Daily Planner</h2>
 
 <form id="plannerForm">
-
 <select id="day" required>
-<option value="">Select Day</option>
+<option value="">Day</option>
 <option>Sunday</option>
 <option>Monday</option>
 <option>Tuesday</option>
@@ -139,29 +123,21 @@ tbody tr:hover{background:#222733}
 <input type="date" id="date" required>
 
 <select id="topic" required>
-<option value="">Select Topic</option>
+<option value="">Topic</option>
 <option>IELTS</option>
 <option>DSA-Java</option>
 <option>Python</option>
-<option>Research Topics</option>
 <option>AI</option>
 </select>
 
-<input
-type="text"
-id="hours"
-placeholder="Hours Spend (2 or 2.5)"
-required
-inputmode="decimal"
-autocomplete="off"
-/>
-
-<button type="submit">Add</button>
+<input id="hours" placeholder="2 or 2.5" required>
+<button>Add</button>
 </form>
 
-<button id="exportBtn">Export CSV</button>
-
-<div id="error" class="error"></div>
+<div class="summary">
+<div class="badge">Total Hours: <span id="totalHours">0</span></div>
+<div class="badge" id="topicSummary"></div>
+</div>
 
 <table>
 <thead>
@@ -176,146 +152,215 @@ autocomplete="off"
 <tbody id="tableBody"></tbody>
 </table>
 
+<canvas id="chart" width="500" height="260"></canvas>
+
 </div>
 </div>
 
 <script>
-const STORAGE_KEY="oneForAllPlanner";
 
-const form=document.getElementById("plannerForm");
-const tableBody=document.getElementById("tableBody");
-const errorBox=document.getElementById("error");
-const hoursInput=document.getElementById("hours");
-const dateInput=document.getElementById("date");
+/* ================= STORAGE ================= */
+const Storage=(()=>{
+const KEY="plannerData";
+return{
+get:()=>JSON.parse(localStorage.getItem(KEY))||[],
+save:data=>localStorage.setItem(KEY,JSON.stringify(data))
+};
+})();
 
-/* Default date = today */
-dateInput.value=new Date().toISOString().split("T")[0];
+/* ================= UI ================= */
+const UI=(()=>{
+const table=document.getElementById("tableBody");
+const total=document.getElementById("totalHours");
+const topic=document.getElementById("topicSummary");
 
-/* Allow only digits + one decimal */
-hoursInput.addEventListener("input",()=>{
-hoursInput.value=
-hoursInput.value
-.replace(/[^0-9.]/g,"")
-.replace(/(\..*)\./g,"$1");
-});
+const render=data=>{
 
-/* Storage */
-function getData(){
-try{
-return JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? [];
-}catch{
-return [];
-}
+table.innerHTML="";
+
+if(!data.length){
+table.innerHTML=`<tr><td colspan="5" style="color:gray;">No entries yet.</td></tr>`;
 }
 
-function saveData(data){
-localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
-}
-
-/* Render */
-function renderTable(){
-const data=getData();
-tableBody.innerHTML="";
-
-data.forEach((item,index)=>{
-const row=document.createElement("tr");
-
-row.innerHTML=`
+data.forEach((item,i)=>{
+table.innerHTML+=`
+<tr>
 <td>${item.day}</td>
 <td>${item.date}</td>
 <td>${item.topic}</td>
-<td><span class="hours-badge">${item.hours} hr</span></td>
-<td>
-<button class="delete-btn" data-index="${index}">
-Delete
-</button>
-</td>
-`;
-
-tableBody.appendChild(row);
+<td>${item.hours}</td>
+<td><button class="del" data-i="${i}">Delete</button></td>
+</tr>`;
 });
-}
 
-/* Submit */
-form.addEventListener("submit",(e)=>{
-e.preventDefault();
-errorBox.textContent="";
-
-const hoursValue=hoursInput.value.trim();
-
-if(!/^\d+(\.\d{1,2})?$/.test(hoursValue)){
-errorBox.textContent=
-"Enter hours like 2 or 2.5 (max 2 decimals)";
-return;
-}
-
-const newEntry={
-day:day.value.trim(),
-date:date.value,
-topic:topic.value.trim(),
-hours:parseFloat(hoursValue)
+updateStats(data);
+drawPieChart(data);
 };
 
-const data=getData();
-data.push(newEntry);
+const updateStats=data=>{
+let totalHours=0;
+const topics={};
 
-saveData(data);
-renderTable();
-form.reset();
-dateInput.value=new Date().toISOString().split("T")[0];
+data.forEach(d=>{
+totalHours+=d.hours;
+topics[d.topic]=(topics[d.topic]||0)+d.hours;
 });
 
-/* Delete */
-tableBody.addEventListener("click",(e)=>{
-if(!e.target.classList.contains("delete-btn")) return;
+total.textContent=totalHours.toFixed(2);
+topic.innerHTML=
+Object.entries(topics)
+.map(([t,h])=>`${t}: ${h}`)
+.join(" | ");
+};
 
-const index=e.target.dataset.index;
-const data=getData();
-data.splice(index,1);
-saveData(data);
-renderTable();
-});
+return{render};
+})();
 
-/* Export CSV */
-document.getElementById("exportBtn").addEventListener("click",()=>{
-const data=getData();
+/* ================= SIMPLE PIE CHART ================= */
+function drawPieChart(data){
+
+const canvas=document.getElementById("chart");
+const ctx=canvas.getContext("2d");
 
 if(!data.length){
-alert("No data to export.");
+canvas.style.display="none";
 return;
 }
 
-const headers=["Day","Date","Topic","Hours"];
+canvas.style.display="block";
+ctx.clearRect(0,0,canvas.width,canvas.height);
 
-const rows=data.map(item=>[
-item.day,
-item.date,
-item.topic,
-item.hours
-]);
-
-const csvContent=
-[headers,...rows]
-.map(row=>
-row.map(value=>
-`"${String(value).replace(/"/g,'""')}"`
-).join(",")
-)
-.join("\n");
-
-const blob=new Blob([csvContent],{type:"text/csv;charset=utf-8;"});
-const url=URL.createObjectURL(blob);
-
-const link=document.createElement("a");
-link.href=url;
-link.download="one-for-all-planner.csv";
-document.body.appendChild(link);
-link.click();
-document.body.removeChild(link);
+const topics={};
+data.forEach(d=>{
+topics[d.topic]=(topics[d.topic]||0)+d.hours;
 });
 
-renderTable();
-</script>
+const labels=Object.keys(topics);
+const values=Object.values(topics);
+const total=values.reduce((a,b)=>a+b,0);
 
+const colors=["#3b82f6","#f97316","#ef4444","#10b981","#a855f7","#eab308"];
+
+const cx=250, cy=130, radius=100;
+
+let startAngle=-Math.PI/2;
+let slices=[];
+
+labels.forEach((label,i)=>{
+const sliceAngle=(values[i]/total)*2*Math.PI;
+const endAngle=startAngle+sliceAngle;
+
+ctx.beginPath();
+ctx.moveTo(cx,cy);
+ctx.arc(cx,cy,radius,startAngle,endAngle);
+ctx.closePath();
+
+ctx.fillStyle=colors[i%colors.length];
+ctx.fill();
+
+slices.push({label,value:values[i],start:startAngle,end:endAngle});
+
+startAngle=endAngle;
+});
+
+/* Hover Tooltip */
+canvas.onmousemove=e=>{
+const rect=canvas.getBoundingClientRect();
+const mx=e.clientX-rect.left;
+const my=e.clientY-rect.top;
+
+const dx=mx-cx;
+const dy=my-cy;
+const dist=Math.sqrt(dx*dx+dy*dy);
+
+if(dist>radius){
+drawPieChart(data);
+return;
+}
+
+let angle=Math.atan2(dy,dx);
+if(angle<-Math.PI/2) angle+=2*Math.PI;
+
+const slice=slices.find(s=>angle>=s.start&&angle<=s.end);
+if(!slice){
+drawPieChart(data);
+return;
+}
+
+drawPieChart(data);
+
+const percent=((slice.value/total)*100).toFixed(1);
+
+ctx.fillStyle="rgba(0,0,0,.8)";
+ctx.fillRect(mx+10,my-30,130,40);
+
+ctx.fillStyle="#fff";
+ctx.font="12px sans-serif";
+ctx.fillText(slice.label,mx+20,my-12);
+ctx.fillText(`${slice.value} hrs (${percent}%)`,mx+20,my+5);
+};
+}
+
+/* ================= APP ================= */
+const App=(()=>{
+const form=document.getElementById("plannerForm");
+const hours=document.getElementById("hours");
+
+hours.addEventListener("input",()=>{
+hours.value=
+hours.value.replace(/[^0-9.]/g,"")
+.replace(/(\..*)\./g,"$1");
+});
+
+form.addEventListener("submit",e=>{
+e.preventDefault();
+if(!/^\d+(\.\d{1,2})?$/.test(hours.value))return;
+
+const entry={
+day:day.value,
+date:date.value,
+topic:topic.value,
+hours:parseFloat(hours.value)
+};
+
+const data=Storage.get();
+data.push(entry);
+Storage.save(data);
+render();
+form.reset();
+});
+
+document.body.addEventListener("click",e=>{
+if(!e.target.classList.contains("del"))return;
+const data=Storage.get();
+data.splice(e.target.dataset.i,1);
+Storage.save(data);
+render();
+});
+
+function render(){
+UI.render(Storage.get());
+}
+
+return{render};
+})();
+
+/* ================= THEME ================= */
+const toggle=document.getElementById("themeToggle");
+
+toggle.onclick=()=>{
+document.body.classList.toggle("light");
+localStorage.setItem("theme",
+document.body.classList.contains("light")?"light":"dark");
+};
+
+if(localStorage.getItem("theme")==="light"){
+document.body.classList.add("light");
+}
+
+/* INIT */
+App.render();
+
+</script>
 </body>
 </html>
