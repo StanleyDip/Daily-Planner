@@ -8,7 +8,7 @@ A minimalist productivity planner that helps track daily learning and work hours
 Built with pure HTML, CSS, and JavaScript — no frameworks, no backend, fully offline.
 
 ## 🚀 Live Demo
-https://yourusername.github.io/repository-name/
+https://StanleyDip.github.io/Daily-Planner/
 
 ## ✨ Features
 - Track daily learning topics
