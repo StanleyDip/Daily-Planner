@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>One For All Planner</title>
+
+<style>
+:root{
+  --bg:#0f1115;
+  --card:#171a21;
+  --card-light:#1e222b;
+  --border:#2a2f3a;
+  --text:#f1f5f9;
+  --muted:#9ca3af;
+  --primary:#3b82f6;
+  --danger:#ef4444;
+}
+
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  font-family:Inter,system-ui,sans-serif;
+  background:radial-gradient(circle at top,#151922,#0f1115);
+  color:var(--text);
+  display:flex;
+  justify-content:center;
+  padding:60px 20px;
+}
+
+.container{max-width:1000px;width:100%}
+
+.card{
+  background:var(--card);
+  border-radius:16px;
+  padding:40px;
+  border:1px solid var(--border);
+  box-shadow:0 20px 40px rgba(0,0,0,.6);
+}
+
+h1{text-align:center;margin:0}
+.subtitle{text-align:center;color:var(--muted);margin:10px 0 40px}
+
+form{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:12px;
+  margin-bottom:20px;
+}
+
+select,input{
+  padding:12px;
+  background:var(--card-light);
+  border:1px solid var(--border);
+  border-radius:10px;
+  color:var(--text);
+}
+
+button{
+  border:none;
+  border-radius:10px;
+  padding:12px;
+  cursor:pointer;
+  font-weight:600;
+  background:var(--primary);
+  color:white;
+}
+
+#exportBtn{
+  margin-bottom:25px;
+  background:#10b981;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  background:var(--card-light);
+}
+
+th,td{
+  padding:14px;
+  text-align:center;
+}
+
+th{color:var(--muted)}
+
+tbody tr{border-top:1px solid var(--border)}
+
+tbody tr:hover{background:#222733}
+
+.hours-badge{
+  background:rgba(59,130,246,.15);
+  color:var(--primary);
+  padding:6px 10px;
+  border-radius:8px;
+  font-weight:600;
+}
+
+.delete-btn{
+  background:var(--danger);
+  color:white;
+  padding:8px 14px;
+}
+
+.error{
+  color:#f87171;
+  text-align:center;
+  margin-bottom:15px;
+}
+
+@media(max-width:900px){
+  form{grid-template-columns:1fr}
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+<div class="card">
+
+<h1>One For All Daily Planner</h1>
+<div class="subtitle">Track your daily learning and productivity</div>
+
+<form id="plannerForm">
+
+<select id="day" required>
+<option value="">Select Day</option>
+<option>Sunday</option>
+<option>Monday</option>
+<option>Tuesday</option>
+<option>Wednesday</option>
+<option>Thursday</option>
+<option>Friday</option>
+<option>Saturday</option>
+</select>
+
+<input type="date" id="date" required>
+
+<select id="topic" required>
+<option value="">Select Topic</option>
+<option>IELTS</option>
+<option>DSA-Java</option>
+<option>Python</option>
+<option>Research Topics</option>
+<option>AI</option>
+</select>
+
+<input
+type="text"
+id="hours"
+placeholder="Hours Spend (2 or 2.5)"
+required
+inputmode="decimal"
+autocomplete="off"
+/>
+
+<button type="submit">Add</button>
+</form>
+
+<button id="exportBtn">Export CSV</button>
+
+<div id="error" class="error"></div>
+
+<table>
+<thead>
+<tr>
+<th>Day</th>
+<th>Date</th>
+<th>Topic</th>
+<th>Hours</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="tableBody"></tbody>
+</table>
+
+</div>
+</div>
+
+<script>
+const STORAGE_KEY="oneForAllPlanner";
+
+const form=document.getElementById("plannerForm");
+const tableBody=document.getElementById("tableBody");
+const errorBox=document.getElementById("error");
+const hoursInput=document.getElementById("hours");
+const dateInput=document.getElementById("date");
+
+/* Default date = today */
+dateInput.value=new Date().toISOString().split("T")[0];
+
+/* Allow only digits + one decimal */
+hoursInput.addEventListener("input",()=>{
+hoursInput.value=
+hoursInput.value
+.replace(/[^0-9.]/g,"")
+.replace(/(\..*)\./g,"$1");
+});
+
+/* Storage */
+function getData(){
+try{
+return JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? [];
+}catch{
+return [];
+}
+}
+
+function saveData(data){
+localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+}
+
+/* Render */
+function renderTable(){
+const data=getData();
+tableBody.innerHTML="";
+
+data.forEach((item,index)=>{
+const row=document.createElement("tr");
+
+row.innerHTML=`
+<td>${item.day}</td>
+<td>${item.date}</td>
+<td>${item.topic}</td>
+<td><span class="hours-badge">${item.hours} hr</span></td>
+<td>
+<button class="delete-btn" data-index="${index}">
+Delete
+</button>
+</td>
+`;
+
+tableBody.appendChild(row);
+});
+}
+
+/* Submit */
+form.addEventListener("submit",(e)=>{
+e.preventDefault();
+errorBox.textContent="";
+
+const hoursValue=hoursInput.value.trim();
+
+if(!/^\d+(\.\d{1,2})?$/.test(hoursValue)){
+errorBox.textContent=
+"Enter hours like 2 or 2.5 (max 2 decimals)";
+return;
+}
+
+const newEntry={
+day:day.value.trim(),
+date:date.value,
+topic:topic.value.trim(),
+hours:parseFloat(hoursValue)
+};
+
+const data=getData();
+data.push(newEntry);
+
+saveData(data);
+renderTable();
+form.reset();
+dateInput.value=new Date().toISOString().split("T")[0];
+});
+
+/* Delete */
+tableBody.addEventListener("click",(e)=>{
+if(!e.target.classList.contains("delete-btn")) return;
+
+const index=e.target.dataset.index;
+const data=getData();
+data.splice(index,1);
+saveData(data);
+renderTable();
+});
+
+/* Export CSV */
+document.getElementById("exportBtn").addEventListener("click",()=>{
+const data=getData();
+
+if(!data.length){
+alert("No data to export.");
+return;
+}
+
+const headers=["Day","Date","Topic","Hours"];
+
+const rows=data.map(item=>[
+item.day,
+item.date,
+item.topic,
+item.hours
+]);
+
+const csvContent=
+[headers,...rows]
+.map(row=>
+row.map(value=>
+`"${String(value).replace(/"/g,'""')}"`
+).join(",")
+)
+.join("\n");
+
+const blob=new Blob([csvContent],{type:"text/csv;charset=utf-8;"});
+const url=URL.createObjectURL(blob);
+
+const link=document.createElement("a");
+link.href=url;
+link.download="one-for-all-planner.csv";
+document.body.appendChild(link);
+link.click();
+document.body.removeChild(link);
+});
+
+renderTable();
+</script>
+
+</body>
+</html>
